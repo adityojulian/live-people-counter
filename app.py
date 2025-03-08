@@ -22,9 +22,9 @@ db.init_app(app)
 # Global variables
 counter = None
 lock = threading.Lock()
-# camera_url = "https://cctvjss.jogjakota.go.id/malioboro/NolKm_Utara.stream/playlist.m3u8"
+camera_url = "https://cctvjss.jogjakota.go.id/malioboro/NolKm_Utara.stream/playlist.m3u8"
 # camera_url = "https://cctvjss.jogjakota.go.id/malioboro/NolKm_GdAgung.stream/playlist.m3u8"
-camera_url = "https://eofficev2.bekasikota.go.id/backupcctv/m3/Depan_SMP_Strada_Budi_luhur.m3u8"
+# camera_url = "https://eofficev2.bekasikota.go.id/backupcctv/m3/Depan_SMP_Strada_Budi_luhur.m3u8"
 zones_data = []
 is_running = True
 
@@ -290,7 +290,8 @@ def update_zone_counts():
         if counter and is_running:
             try:
                 with lock:
-                    stats = counter._get_stats()
+                    _, stats = counter.process_frame()
+                    print("STATS FROM COUNTER", stats)
                 
                 current_time = datetime.now(pytz.UTC)
                         
