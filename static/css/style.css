@@ -1,0 +1,139 @@
+/* Common styles */
+body {
+	background-color: #f8f9fa;
+}
+
+/* Card styles */
+.stats-card {
+	margin: 10px 0;
+	padding: 20px;
+	border-radius: 10px;
+	background-color: white;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+	transition: transform 0.2s;
+}
+
+.stats-card:hover {
+	transform: translateY(-2px);
+}
+
+.stats-card h4 {
+	color: #0d6efd;
+	margin-bottom: 15px;
+}
+
+/* Video container */
+.video-container {
+	position: relative;
+	width: 100%;
+	max-width: 1280px;
+	min-height: 480px;
+	background-color: #343a40;
+	border-radius: 10px;
+	overflow: hidden;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.video-feed {
+	width: 100%;
+	height: auto;
+	display: block;
+}
+
+/* Controls */
+.controls {
+	margin: 20px 0;
+	padding: 15px;
+	background: white;
+	border-radius: 10px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.controls .btn {
+	margin-right: 10px;
+}
+
+/* Loading states */
+.loading-container {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	text-align: center;
+	background: rgba(0, 0, 0, 0.8);
+	padding: 30px;
+	border-radius: 15px;
+	color: white;
+}
+
+.loading-spinner {
+	width: 3rem;
+	height: 3rem;
+}
+
+.loading-text {
+	margin-top: 1rem;
+	font-weight: 500;
+}
+
+.stream-error {
+	display: none;
+	color: #dc3545;
+	background: white;
+	padding: 10px 20px;
+	border-radius: 5px;
+	margin-top: 10px;
+}
+
+/* Zone setup specific */
+.canvas-container {
+	position: relative;
+	margin: 0;
+	width: 100%;
+	max-width: 1280px;
+	background-color: #343a40;
+	border-radius: 10px;
+	overflow: hidden;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.zones-list {
+	max-height: calc(100vh - 200px);
+	overflow-y: auto;
+}
+
+.zone-card {
+	background: white;
+	border-radius: 8px;
+	padding: 15px;
+	margin-bottom: 10px;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Tooltips */
+[data-tooltip] {
+	position: relative;
+	cursor: help;
+}
+
+[data-tooltip]:before {
+	content: attr(data-tooltip);
+	position: absolute;
+	bottom: 100%;
+	left: 50%;
+	transform: translateX(-50%);
+	padding: 5px 10px;
+	background: rgba(0, 0, 0, 0.8);
+	color: white;
+	border-radius: 5px;
+	font-size: 12px;
+	white-space: nowrap;
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity 0.2s;
+}
+
+[data-tooltip]:hover:before {
+	opacity: 1;
+	visibility: visible;
+}
