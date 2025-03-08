@@ -8,13 +8,13 @@
 
 1. Clone this repository:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/adityojulian/live-people-counter.git
    cd people-counter
    ```
 
 2. Start the application:
    ```bash
-   docker-compose up -d
+   docker-compose up --build
    ```
 
 3. Access the application at: http://localhost:5000
