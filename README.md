@@ -1,9 +1,25 @@
 # Live People Counter from CCTV Footage
 
-## Table of Contents
-[1. Database Structure and Diagram]()
- 
+## 📌 Table of Contents
+[1. Database Structure and Diagram](#1-database-structure-and-diagram)
 
+[2. Object Detection & Tracking Process](#2-object-detection--tracking-process)
+
+[3. Video/Dataset Source](#3-videodataset-source)
+
+[4. API Endpoints](#4-api-endpoints)
+
+[5. Dashboard Overview](#5-dashboard-overview)
+
+[6. How to Run the System](#6-how-to-run-the-system)
+
+[Pre-requisites](#pre-requisites)
+   - [Using Docker (Recommended)](#using-docker-recommended)
+   - [Changing YOLO Model](#changing-yolo-model)
+   - [Running Without GPU](#running-without-gpu)
+   
+[7. Troubleshooting](#7-troubleshooting)
+ 
 ## 1. Database Structure and Diagram
 
 The system uses **SQLite** to store data related to **zones** and **counting logs**.
@@ -34,7 +50,7 @@ This mechanism is heavily influenced by the `PoepleCounterNew()` class. The docu
 2.  **Detect People with YOLO**
     
     -  Runs **YOLO object detection** to find **people in the frame**.
-    - By default, the model being used is the yolo11-small or `yolo11s` from [Ultralytics](https://docs.ultralytics.com/models/yolo11/). If the program becomes too heavy to run, try changing to a smaller model by modifying the `Dockerfile` like as specified [here]().
+    - By default, the model being used is the yolo11-small or `yolo11s` from [Ultralytics](https://docs.ultralytics.com/models/yolo11/). If the program becomes too heavy to run, try changing to a smaller model by modifying the `Dockerfile` as specified [here](#changing-yolo-model).
 3.  **Track Individuals with ByteTrack**
     -   Assigns **unique tracking IDs** to detected people.
 4.  **Check If Inside a Zone**
@@ -59,7 +75,7 @@ The **video stream** is obtained from **CCTV cameras**.
     ```
 
 ## 4. API Endpoints
-A more detailed  API documentation can be found [here]().
+A more detailed  API documentation can be found [here](./API_README.md).
 | Endpoint | Method | Description | 
 |------------------------|--------|------------------------------------------------------| 
 | **Video Streaming** | 
