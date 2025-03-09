@@ -4,7 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 import cv2
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 from instance.models import db, Zone, ZoneCount
 from modules.people_counter_new import PeopleCounterNew
@@ -45,18 +45,61 @@ def initialize_counter():
     if counter is not None:
         counter.stop()
         
-    # Retrieve zones from the database
+    # Retrieve zones and their last counts from the database
     with app.app_context():
-        zones = Zone.query.filter_by(active=True).all()
-        zones_data = [{
-            'id': zone.id,
-            'points': zone.points,
-            'name': zone.name
-        } for zone in zones]
+        active_zones = Zone.query.filter_by(active=True).order_by(Zone.id).all()
+        active_zone_ids = [zone.id for zone in active_zones]
+
+        # Get latest counts for active zones
+        latest_counts = db.session.query(
+            ZoneCount,
+            Zone.name
+        ).join(
+            Zone,
+            ZoneCount.zone_id == Zone.id
+        ).filter(
+            Zone.id.in_(active_zone_ids)
+        ).filter(
+            ZoneCount.id.in_(
+                db.session.query(func.max(ZoneCount.id))
+                .group_by(ZoneCount.zone_id)
+            )
+        ).all()
+        
+        # Create a dictionary of last counts by zone_id using joined results
+        last_counts_dict = {count[0].zone_id: count[0] for count in latest_counts}
+        # print("LAST COUNT: ", last_counts_dict[14].exits)
+        
+        zones_data = []
+        for zone in active_zones:
+            zone_data = {
+                'id': zone.id,
+                'points': zone.points,
+                'name': zone.name
+            }
+            
+            # Add last known counts if available from joined results
+            if zone.id in last_counts_dict:
+                last_count = last_counts_dict[zone.id]
+                zone_data.update({
+                    'initial_entries': last_count.entries,
+                    'initial_exits': last_count.exits,
+                    'initial_count': last_count.current_count
+                })
+                print("ZONE DATA: ", zone_data)
+            else:
+                # If no previous counts exist, start from 0
+                zone_data.update({
+                    'initial_entries': 0,
+                    'initial_exits': 0,
+                    'initial_count': 0
+                })
+            
+            zones_data.append(zone_data)
     
     counter = PeopleCounterNew(
         video_source=camera_url,
-        model_path="yolov8n.pt",
+        model_path="yolo11s.pt",
         target_fps=30,
         buffer_size=5,
         zones=zones_data
@@ -114,28 +157,74 @@ def video_feed():
 def get_stats():
     """Get zone statistics with optional time filtering"""
     zone_id = request.args.get('zone_id', type=int)
+    time_range = request.args.get('range')  # in minutes
     start_time = request.args.get('start_time')
     end_time = request.args.get('end_time')
     
     with app.app_context():
         try:
-            if zone_id and (start_time or end_time):
-                # Historical data request
-                try:
-                    start_dt = datetime.fromisoformat(start_time).replace(tzinfo=pytz.UTC) if start_time else None
-                    end_dt = datetime.fromisoformat(end_time).replace(tzinfo=pytz.UTC) if end_time else None
-                    counts = ZoneCount.get_counts(zone_id, start_dt, end_dt)
-                    return jsonify([count.to_dict() for count in counts])
-                except ValueError as e:
-                    return jsonify({"error": f"Invalid datetime format: {str(e)}"}), 400
+            # Get active zones in order
+            active_zones = Zone.query.filter_by(active=True).order_by(Zone.id).all()
+            active_zone_ids = [zone.id for zone in active_zones]
+            
+            if time_range or (start_time and end_time):
+                # Calculate time range
+                end_dt = datetime.now(pytz.UTC)
+                
+                if start_time and end_time:
+                    # Remove 'Z' and handle timezone
+                    start_time = start_time.replace('Z', '+00:00')
+                    end_time = end_time.replace('Z', '+00:00')
+                    
+                    try:
+                        start_dt = datetime.fromisoformat(start_time)
+                        end_dt = datetime.fromisoformat(end_time)
+                    except ValueError:
+                        # Fallback for older Python versions
+                        start_dt = datetime.strptime(start_time.split('.')[0], '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.UTC)
+                        end_dt = datetime.strptime(end_time.split('.')[0], '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.UTC)
+                else:
+                    start_dt = end_dt - timedelta(minutes=int(time_range))
+                
+                stats = {}
+                for zone in active_zones:
+                    # Get counts within the time range
+                    counts_in_range = db.session.query(ZoneCount).filter(
+                        ZoneCount.zone_id == zone.id,
+                        ZoneCount.timestamp.between(start_dt, end_dt)
+                    ).order_by(ZoneCount.timestamp.asc()).all()
+                    
+                    if counts_in_range:
+                        # Get first and last count in range
+                        first_count = counts_in_range[0]
+                        last_count = counts_in_range[-1]
+                        
+                        # Calculate differences within the range
+                        entries_diff = last_count.entries - first_count.entries
+                        exits_diff = last_count.exits - first_count.exits
+                        
+                        # Get peak count in range
+                        peak_count = max(c.current_count for c in counts_in_range)
+                        
+                        stats[zone.id] = {
+                            'name': zone.name,
+                            'entry': entries_diff,
+                            'exit': exits_diff,
+                            'peak': peak_count,
+                            'current': last_count.current_count
+                        }
+                    else:
+                        # No data in range
+                        stats[zone.id] = {
+                            'name': zone.name,
+                            'entry': 0,
+                            'exit': 0,
+                            'peak': 0,
+                            'current': None
+                        }
+                
+                return jsonify(stats)
             else:
-                # Current stats - get most recent count for each active zone using subquery
-                try:
-                    # Get active zones in order
-                    active_zones = Zone.query.filter_by(active=True).order_by(Zone.id).all()
-                    active_zone_ids = [zone.id for zone in active_zones]
-
-                    # Get latest counts for active zones
                     latest_counts = db.session.query(
                         ZoneCount,
                         Zone.name
@@ -163,10 +252,6 @@ def get_stats():
                     
                     return jsonify(stats)
                     
-                except Exception as e:
-                    print(f"Error getting current stats: {str(e)}")
-                    return jsonify({"error": "Database error"}), 500
-                    
         except Exception as e:
             print(f"Error in get_stats: {str(e)}")
             return jsonify({"error": "Server error"}), 500
@@ -180,22 +265,18 @@ def manage_zones():
     if request.method == 'POST':
         try:
             zones_data = request.json
-            print("Received zones data:", zones_data)  # Debug log
+            print("Received zones data:", zones_data)
             
             with app.app_context():
                 try:
-                    # Deactivate all existing zones
-                    Zone.query.update({"active": False})
-                    db.session.flush()
+                    # Get existing zones indexed by ID
+                    existing_zones = {zone.id: zone for zone in Zone.query.all()}
                     
-                    # Add new zones
-                    new_zones = []
-                    for i, zone_data in enumerate(zones_data):
+                    # Track which zones to keep active
+                    zones_to_update = []
+                    
+                    for zone_data in zones_data:
                         try:
-                            # Validate zone data
-                            if not isinstance(zone_data.get('points'), list):
-                                raise ValueError("Points must be a list")
-                            
                             # Convert points to proper format
                             points = []
                             for point in zone_data['points']:
@@ -204,32 +285,49 @@ def manage_zones():
                                 elif isinstance(point, list) and len(point) == 2:
                                     points.append([int(point[0]), int(point[1])])
                                 else:
-                                    raise ValueError("Invalid point format")
+                                    raise ValueError(f"Invalid point format: {point}")
                             
-                            # Create zone with validated data
-                            zone = Zone(
-                                name=zone_data.get('name', f'Zone {i+1}'),
-                                points=points,
-                                active=True
-                            )
-                            new_zones.append(zone)
-                            db.session.add(zone)
+                            zone_name = zone_data.get('name', f'Zone {len(zones_to_update)+1}')
+                            zone_id = zone_data.get('id')
+                            
+                            if zone_id and zone_id in existing_zones:
+                                # Update existing zone
+                                zone = existing_zones[zone_id]
+                                zone.points = points
+                                zone.name = zone_name
+                                zone.active = True
+                                zones_to_update.append(zone)
+                            else:
+                                # Create new zone
+                                zone = Zone(
+                                    name=zone_name,
+                                    points=points,
+                                    active=True
+                                )
+                                db.session.add(zone)
+                                zones_to_update.append(zone)
                             
                         except Exception as e:
-                            print(f"Error processing zone {i}:", e)  # Debug log
-                            raise ValueError(f"Invalid zone data format at index {i}: {str(e)}")
+                            print(f"Error processing zone data:", e)
+                            raise ValueError(f"Invalid zone data: {str(e)}")
                     
-                    # Commit the transaction
+                    # Deactivate zones not in the update
+                    for zone in existing_zones.values():
+                        if zone not in zones_to_update:
+                            zone.active = False
+                    
+                    # Commit changes
                     db.session.commit()
                     
-                    # Update counter with new zones
+                    # Update counter with active zones
                     with lock:
                         if counter is not None:
                             zone_configs = [{
                                 'points': zone.points,
                                 'name': zone.name,
                                 'id': zone.id
-                            } for zone in new_zones]
+                            } for zone in zones_to_update]
+                            print("ZONE CONFIGS: ", zone_configs)
                             counter.update_zones(zone_configs)
                     
                     return jsonify({"status": "success"})
@@ -250,6 +348,98 @@ def manage_zones():
         except Exception as e:
             print(f"Error fetching zones: {str(e)}")
             return jsonify({"status": "error", "message": str(e)}), 500
+        
+@app.route('/zones/<int:zone_id>', methods=['PUT', 'DELETE'])
+def manage_single_zone(zone_id):
+    """Manage individual zone operations"""
+    global counter
+    
+    try:
+        with app.app_context():
+            zone = Zone.query.get(zone_id)
+            if not zone:
+                return jsonify({"status": "error", "message": "Zone not found"}), 404
+
+            if request.method == 'DELETE':
+                # Deactivate zone instead of deleting
+                zone.active = False
+                db.session.commit()
+                
+                # Update counter
+                with lock:
+                    if counter is not None:
+                        counter.delete_zone(zone_id)
+                
+                return jsonify({"status": "success"})
+
+            elif request.method == 'PUT':
+                data = request.json
+                
+                # Update zone in database
+                if 'name' in data:
+                    zone.name = data['name']
+                if 'points' in data:
+                    zone.points = data['points']
+                db.session.commit()
+                
+                # Update counter
+                with lock:
+                    if counter is not None:
+                        last_count = ZoneCount.query.filter_by(zone_id=zone_id).order_by(ZoneCount.timestamp.desc()).first()
+                        counter.update_single_zone(
+                            zone_id,
+                            name=zone.name,
+                            points=zone.points,
+                            initial_entries=last_count.entries if last_count else 0,
+                            initial_exits=last_count.exits if last_count else 0,
+                            initial_count=last_count.current_count if last_count else 0
+                        )
+                
+                return jsonify({"status": "success"})
+                
+    except Exception as e:
+        print(f"Error managing zone {zone_id}: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/zones/new', methods=['POST'])
+def add_zone():
+    """Add a new zone"""
+    global counter
+    
+    try:
+        data = request.json
+        with app.app_context():
+            points = []
+            for point in data['points']:
+                if isinstance(point, dict) and 'x' in point and 'y' in point:
+                    points.append([int(point['x']), int(point['y'])])
+                elif isinstance(point, list) and len(point) == 2:
+                    points.append([int(point[0]), int(point[1])])
+                else:
+                    raise ValueError(f"Invalid point format: {point}")
+            # Create new zone in database
+            zone = Zone(
+                name=data.get('name', f'Zone {Zone.query.count() + 1}'),
+                points=points,
+                active=True
+            )
+            db.session.add(zone)
+            db.session.commit()
+            
+            # Add to counter
+            with lock:
+                if counter is not None:
+                    counter.add_single_zone(
+                        points=zone.points,
+                        name=zone.name,
+                        id=zone.id
+                    )
+            
+            return jsonify({"status": "success", "zone_id": zone.id})
+            
+    except Exception as e:
+        print(f"Error adding zone: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/setup-polygons', methods=['GET'])
 def setup_polygons():
@@ -291,7 +481,7 @@ def update_zone_counts():
             try:
                 with lock:
                     _, stats = counter.process_frame()
-                    print("STATS FROM COUNTER", stats)
+                    # print("STATS FROM COUNTER", stats)
                 
                 current_time = datetime.now(pytz.UTC)
                         
@@ -310,6 +500,50 @@ def update_zone_counts():
                 print(f"Error updating database: {e}")
                 
         time.sleep(1.0)  # Update every second
+        
+@app.route('/graph-data', methods=['GET'])
+def get_graph_data():
+    """Get historical data for graph visualization"""
+    try:
+        start_time = request.args.get('start_time')
+        end_time = request.args.get('end_time')
+        
+        with app.app_context():
+            # Get active zones first
+            active_zones = Zone.query.filter_by(active=True).all()
+            
+            # Convert times to UTC datetime
+            start_dt = datetime.fromisoformat(start_time).replace(tzinfo=pytz.UTC) if start_time else None
+            end_dt = datetime.fromisoformat(end_time).replace(tzinfo=pytz.UTC) if end_time else None
+            
+            # Build query
+            query = ZoneCount.query
+            if start_dt:
+                query = query.filter(ZoneCount.timestamp >= start_dt)
+            if end_dt:
+                query = query.filter(ZoneCount.timestamp <= end_dt)
+            
+            # Get data for each zone
+            data = {}
+            for zone in active_zones:
+                zone_counts = query.filter_by(zone_id=zone.id).order_by(ZoneCount.timestamp).all()
+                data[zone.id] = {
+                    'name': zone.name,
+                    'entries': [{'t': count.timestamp.isoformat(), 'y': count.entries} for count in zone_counts],
+                    'exits': [{'t': count.timestamp.isoformat(), 'y': count.exits} for count in zone_counts],
+                    'current': [{'t': count.timestamp.isoformat(), 'y': count.current_count} for count in zone_counts]
+                }
+            
+            return jsonify(data)
+            
+    except Exception as e:
+        print(f"Error getting graph data: {e}")
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/graph')
+def show_graph():
+    """Render graph visualization page"""
+    return render_template('graph.html')
 
 @app.route('/camera', methods=['POST'])
 def set_camera():

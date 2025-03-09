@@ -42,3 +42,11 @@ class ZoneCount(db.Model):
             query = query.filter(cls.timestamp <= end_time)
             
         return query.order_by(cls.timestamp.desc()).all()
+    
+    @staticmethod
+    def get_last_counts():
+        """Get the last count record for each zone"""
+        return (db.session.query(ZoneCount)
+                .distinct(ZoneCount.zone_id)
+                .order_by(ZoneCount.zone_id, ZoneCount.timestamp.desc())
+                .all())

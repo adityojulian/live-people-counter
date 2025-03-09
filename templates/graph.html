@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Traffic Analysis</title>
+		<link
+			href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+			rel="stylesheet"
+		/>
+		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/moment"></script>
+		<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment"></script>
+		<style>
+			.chart-container {
+				position: relative;
+				width: 100%;
+				height: 70vh;
+				margin: 20px 0;
+			}
+			.controls {
+				margin: 20px 0;
+			}
+			.legend-control {
+				margin: 10px 0;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<h1 class="mt-4">Traffic Analysis</h1>
+
+			<div class="controls">
+				<div class="row">
+					<div class="col-md-4">
+						<label for="startTime">Start Time:</label>
+						<input type="datetime-local" id="startTime" class="form-control" />
+					</div>
+					<div class="col-md-4">
+						<label for="endTime">End Time:</label>
+						<input type="datetime-local" id="endTime" class="form-control" />
+					</div>
+					<div class="col-md-4">
+						<label>&nbsp;</label>
+						<button
+							onclick="updateGraph()"
+							class="btn btn-primary form-control"
+						>
+							Update
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<div class="legend-control">
+				<div class="form-check form-check-inline">
+					<input
+						class="form-check-input"
+						type="checkbox"
+						id="showEntries"
+						checked
+					/>
+					<label class="form-check-label" for="showEntries">Show Entries</label>
+				</div>
+				<div class="form-check form-check-inline">
+					<input
+						class="form-check-input"
+						type="checkbox"
+						id="showExits"
+						checked
+					/>
+					<label class="form-check-label" for="showExits">Show Exits</label>
+				</div>
+				<div class="form-check form-check-inline">
+					<input
+						class="form-check-input"
+						type="checkbox"
+						id="showCurrent"
+						checked
+					/>
+					<label class="form-check-label" for="showCurrent"
+						>Show Current Count</label
+					>
+				</div>
+			</div>
+
+			<div class="chart-container">
+				<canvas id="trafficChart"></canvas>
+			</div>
+		</div>
+
+		<script>
+			let chart = null;
+			const colors = [
+				"#FF6384",
+				"#36A2EB",
+				"#FFCE56",
+				"#4BC0C0",
+				"#9966FF",
+				"#FF9F40",
+				"#FF6384",
+				"#36A2EB",
+				"#FFCE56",
+			];
+
+			// Modify createDataset function
+			function createDataset(data, label, color, type) {
+				// Decimate data if there are too many points
+				const maxPoints = 100;
+				let decimatedData = data;
+				if (data.length > maxPoints) {
+					const skip = Math.floor(data.length / maxPoints);
+					decimatedData = data.filter((_, index) => index % skip === 0);
+				}
+
+				return {
+					label: label,
+					data: decimatedData.map((point) => ({
+						x: new Date(point.t),
+						y: parseFloat(point.y),
+					})),
+					borderColor: color,
+					backgroundColor: color + "33",
+					fill: false,
+					tension: 0.2, // Reduced from 0.4 for better performance
+					pointRadius: decimatedData.length > 50 ? 0 : 2, // Hide points if too many
+					borderWidth: 1.5,
+					spanGaps: true,
+				};
+			}
+
+			function updateGraph() {
+				const startTime = document.getElementById("startTime").value;
+				const endTime = document.getElementById("endTime").value;
+
+				// Add loading indicator
+				const canvas = document.getElementById("trafficChart");
+				canvas.style.opacity = "0.5";
+
+				fetch(`/graph-data?start_time=${startTime}&end_time=${endTime}`)
+					.then((response) => {
+						if (!response.ok) {
+							throw new Error(`HTTP error! status: ${response.status}`);
+						}
+						return response.json();
+					})
+					.then((data) => {
+						console.log("Received data:", data); // Debug logging
+
+						const datasets = [];
+						let colorIndex = 0;
+
+						Object.entries(data).forEach(([zoneId, zoneData]) => {
+							if (!zoneData.current || !Array.isArray(zoneData.current)) {
+								console.error("Invalid data format for zone:", zoneId);
+								return;
+							}
+
+							const baseColor = colors[colorIndex % colors.length];
+
+							// Only add datasets if they have data
+							if (zoneData.current && zoneData.current.length > 0) {
+								datasets.push(
+									createDataset(
+										zoneData.current,
+										`${zoneData.name || zoneId} - Current`,
+										baseColor,
+										"current"
+									)
+								);
+							}
+
+							if (zoneData.entries && zoneData.entries.length > 0) {
+								datasets.push(
+									createDataset(
+										zoneData.entries,
+										`${zoneData.name || zoneId} - Entries`,
+										shiftColor(baseColor, 20),
+										"entries"
+									)
+								);
+							}
+
+							if (zoneData.exits && zoneData.exits.length > 0) {
+								datasets.push(
+									createDataset(
+										zoneData.exits,
+										`${zoneData.name || zoneId} - Exits`,
+										shiftColor(baseColor, -20),
+										"exits"
+									)
+								);
+							}
+
+							colorIndex++;
+						});
+
+						if (chart) {
+							chart.destroy();
+						}
+
+						const ctx = document
+							.getElementById("trafficChart")
+							.getContext("2d");
+						// Modify chart options in updateGraph function
+						chart = new Chart(ctx, {
+							type: "line",
+							data: { datasets },
+							options: {
+								responsive: true,
+								maintainAspectRatio: false,
+								animation: {
+									duration: 0, // Disable animation for better performance
+								},
+								interaction: {
+									mode: "nearest",
+									axis: "x",
+									intersect: false,
+								},
+								elements: {
+									line: {
+										tension: 0.2, // Reduce curve tension
+									},
+								},
+								scales: {
+									x: {
+										type: "time",
+										time: {
+											unit: "second",
+											displayFormats: {
+												second: "HH:mm:ss",
+											},
+										},
+										title: {
+											display: true,
+											text: "Time",
+										},
+										ticks: {
+											maxTicksLimit: 10, // Limit number of ticks
+											source: "auto",
+											autoSkip: true,
+										},
+									},
+									y: {
+										beginAtZero: true,
+										title: {
+											display: true,
+											text: "Count",
+										},
+										ticks: {
+											maxTicksLimit: 8, // Limit number of ticks
+										},
+									},
+								},
+								plugins: {
+									tooltip: {
+										enabled: true,
+										mode: "nearest",
+										intersect: false,
+										animation: false, // Disable tooltip animation
+										callbacks: {
+											title: function (tooltipItems) {
+												return new Date(
+													tooltipItems[0].parsed.x
+												).toLocaleString();
+											},
+										},
+									},
+									legend: {
+										position: "top",
+										labels: {
+											usePointStyle: false, // Disable point style in legend
+										},
+									},
+									decimation: {
+										enabled: true,
+										algorithm: "min-max",
+									},
+								},
+							},
+						});
+
+						// Restore canvas opacity
+						canvas.style.opacity = "1";
+						updateVisibility();
+					})
+					.catch((error) => {
+						console.error("Error fetching graph data:", error);
+						canvas.style.opacity = "1";
+					});
+			}
+
+			function shiftColor(color, amount) {
+				const hex = color.replace("#", "");
+				const num = parseInt(hex, 16);
+				const r = Math.min(255, Math.max(0, ((num >> 16) & 0xff) + amount));
+				const g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + amount));
+				const b = Math.min(255, Math.max(0, (num & 0xff) + amount));
+				return "#" + ((r << 16) | (g << 8) | b).toString(16).padStart(6, "0");
+			}
+
+			function updateVisibility() {
+				if (!chart) return;
+
+				const showEntries = document.getElementById("showEntries").checked;
+				const showExits = document.getElementById("showExits").checked;
+				const showCurrent = document.getElementById("showCurrent").checked;
+
+				chart.data.datasets.forEach((dataset) => {
+					if (dataset.label.includes("Entries")) {
+						dataset.hidden = !showEntries;
+					} else if (dataset.label.includes("Exits")) {
+						dataset.hidden = !showExits;
+					} else if (dataset.label.includes("Current")) {
+						dataset.hidden = !showCurrent;
+					}
+				});
+
+				chart.update();
+			}
+
+			// Add event listeners for checkboxes
+			document
+				.getElementById("showEntries")
+				.addEventListener("change", updateVisibility);
+			document
+				.getElementById("showExits")
+				.addEventListener("change", updateVisibility);
+			document
+				.getElementById("showCurrent")
+				.addEventListener("change", updateVisibility);
+
+			// Set default date range and load initial data
+			const now = new Date();
+			const yesterday = new Date(now);
+			yesterday.setDate(yesterday.getDate() - 1);
+
+			document.getElementById("startTime").value = yesterday
+				.toISOString()
+				.slice(0, 16);
+			document.getElementById("endTime").value = now.toISOString().slice(0, 16);
+			updateGraph();
+		</script>
+	</body>
+</html>

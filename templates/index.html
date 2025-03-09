@@ -19,12 +19,14 @@
 						<a href="/setup-polygons" class="btn btn-primary"
 							>Setup Counting Zones</a
 						>
+						<!-- Add this in the controls div in index.html -->
+						<a href="/graph" class="btn btn-info">View Traffic Analysis</a>
 						<!-- <button id="startBtn" class="btn btn-success">Start</button>
 						<button id="stopBtn" class="btn btn-danger">Stop</button> -->
 					</div>
 				</div>
 			</div>
-			<div class="row">
+			<div class="row justify-content-center">
 				<div class="col-md-8">
 					<div class="video-container">
 						<!-- Add loading container -->
@@ -45,144 +47,323 @@
 						/>
 					</div>
 				</div>
-				<div class="col-md-4">
-					<div id="stats-container"></div>
+				<div class="col-md-4 justify-content-center">
+					<!-- Add stats container -->
+					<h3 class="mb-3">All-time Statistics</h3>
+					<p>The data is updated every second.</p>
+					<div id="stats-container" class="stats-row"></div>
+
+					<h3 class="mt-4 mb-3">Time Range Statistics</h3>
+					<p>The data is updated every second.</p>
+					<div class="custom-range-form">
+						<div class="row g-2">
+							<div class="col-md-5">
+								<input
+									type="datetime-local"
+									id="startTime"
+									class="form-control"
+								/>
+							</div>
+							<div class="col-md-5">
+								<input
+									type="datetime-local"
+									id="endTime"
+									class="form-control"
+								/>
+							</div>
+							<div class="col-md-2">
+								<button
+									onclick="fetchCustomRange()"
+									class="btn btn-primary w-100"
+								>
+									Go
+								</button>
+							</div>
+						</div>
+					</div>
+
+					<div class="quick-select">
+						<button
+							onclick="setQuickRange(10, 'seconds')"
+							class="btn btn-sm btn-outline-secondary"
+						>
+							Last 10s
+						</button>
+						<button
+							onclick="setQuickRange(1, 'minutes')"
+							class="btn btn-sm btn-outline-secondary"
+						>
+							Last 1m
+						</button>
+						<button
+							onclick="setQuickRange(5, 'minutes')"
+							class="btn btn-sm btn-outline-secondary"
+						>
+							Last 5m
+						</button>
+						<button
+							onclick="setQuickRange(30, 'minutes')"
+							class="btn btn-sm btn-outline-secondary"
+						>
+							Last 30m
+						</button>
+						<button
+							onclick="setQuickRange(1, 'hours')"
+							class="btn btn-sm btn-outline-secondary"
+						>
+							Last 1h
+						</button>
+						<button
+							onclick="setQuickRange(24, 'hours')"
+							class="btn btn-sm btn-outline-secondary"
+						>
+							Last 24h
+						</button>
+					</div>
+
+					<div id="range-stats-container" class="stats-row"></div>
 				</div>
 			</div>
 		</div>
 
 		<script>
-            // State management
-            const STATE = {
-                LOADING: 'loading',
-                CONNECTED: 'connected',
-                ERROR: 'error'
-            };
-        
-            // UI Elements
-            const videoFeed = document.getElementById("videoFeed");
-            const loadingContainer = document.getElementById("loadingContainer");
-            const streamError = document.getElementById("streamError");
-            const loadingSpinner = document.querySelector(".loading-spinner");
-            const loadingText = document.querySelector(".loading-text");
-        
-            let currentState = STATE.LOADING;
-        
-            function updateUIState(state) {
-                currentState = state;
-                switch (state) {
-                    case STATE.LOADING:
-                        loadingContainer.style.display = "block";
-                        loadingSpinner.style.display = "block";
-                        loadingText.style.display = "block";
-                        streamError.style.display = "none";
-                        videoFeed.style.display = "none";
-                        break;
-                    case STATE.CONNECTED:
-                        loadingContainer.style.display = "none";
-                        videoFeed.style.display = "block";
-                        break;
-                    case STATE.ERROR:
-                        loadingContainer.style.display = "block";
-                        loadingSpinner.style.display = "none";
-                        loadingText.style.display = "none";
-                        streamError.style.display = "block";
-                        videoFeed.style.display = "none";
-                        break;
-                }
-            }
-        
-            // Check stream status before showing video
-            function checkStreamStatus() {
-                fetch('/video_feed', { method: 'HEAD' })
-                    .then(response => {
-                        if (response.ok) {
-                            videoFeed.src = '/video_feed';
-                        } else {
-                            throw new Error('Stream not ready');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Stream error:', error);
-                        updateUIState(STATE.ERROR);
-                    });
-            }
-        
-            // Add load event listener to video feed
-            videoFeed.onload = function () {
-                updateUIState(STATE.CONNECTED);
-            };
-        
-            // Add error handling for video feed
-            videoFeed.onerror = function () {
-                updateUIState(STATE.ERROR);
-                // Retry connection after 5 seconds
-                setTimeout(checkStreamStatus, 5000);
-            };
-        
-            // Initial stream check
-            checkStreamStatus();
-        
-            // Stats update with error handling
-            function updateStats() {
-                fetch("/stats")
-                    .then(response => {
-                        if (!response.ok) throw new Error("Network response was not ok");
-                        return response.json();
-                    })
-                    .then(stats => {
-                        const container = document.getElementById("stats-container");
-                        container.innerHTML = "";
-        
-                        Object.entries(stats).forEach(([id, zone]) => {
-                            container.innerHTML += `
-                                <div class="stats-card">
-                                    <h4>${zone.name}</h4>
-                                    <p>Entries: ${zone.entry}</p>
-                                    <p>Exits: ${zone.exit}</p>
-                                    <p>Current: ${zone.current}</p>
-                                </div>
-                            `;
-                        });
-                    })
-                    .catch(error => {
-                        console.error("Error fetching stats:", error);
-                        if (currentState === STATE.LOADING) {
-                            updateUIState(STATE.ERROR);
-                        }
-                    });
-            }
-        
-            // // Start/Stop controls with state management
-            // document.getElementById("startBtn").addEventListener("click", () => {
-            //     updateUIState(STATE.LOADING);
-            //     fetch("/start", { method: "POST" })
-            //         .then(response => response.json())
-            //         .then(data => {
-            //             console.log(data.message);
-            //             checkStreamStatus();
-            //         })
-            //         .catch(error => {
-            //             console.error("Error starting process:", error);
-            //             updateUIState(STATE.ERROR);
-            //         });
-            // });
-        
-            // document.getElementById("stopBtn").addEventListener("click", () => {
-            //     fetch("/stop", { method: "POST" })
-            //         .then(response => response.json())
-            //         .then(data => {
-            //             console.log(data.message);
-            //             updateUIState(STATE.LOADING);
-            //         })
-            //         .catch(error => {
-            //             console.error("Error stopping process:", error);
-            //         });
-            // });
-        
-            // Update stats periodically
-            setInterval(updateStats, 1000);
-        </script>
+			// State management
+			const STATE = {
+				LOADING: "loading",
+				CONNECTED: "connected",
+				ERROR: "error",
+			};
+
+			// UI Elements
+			const videoFeed = document.getElementById("videoFeed");
+			const loadingContainer = document.getElementById("loadingContainer");
+			const streamError = document.getElementById("streamError");
+			const loadingSpinner = document.querySelector(".loading-spinner");
+			const loadingText = document.querySelector(".loading-text");
+
+			let currentState = STATE.LOADING;
+
+			function updateUIState(state) {
+				currentState = state;
+				switch (state) {
+					case STATE.LOADING:
+						loadingContainer.style.display = "block";
+						loadingSpinner.style.display = "block";
+						loadingText.style.display = "block";
+						streamError.style.display = "none";
+						videoFeed.style.display = "none";
+						break;
+					case STATE.CONNECTED:
+						loadingContainer.style.display = "none";
+						videoFeed.style.display = "block";
+						break;
+					case STATE.ERROR:
+						loadingContainer.style.display = "block";
+						loadingSpinner.style.display = "none";
+						loadingText.style.display = "none";
+						streamError.style.display = "block";
+						videoFeed.style.display = "none";
+						break;
+				}
+			}
+
+			// Check stream status before showing video
+			function checkStreamStatus() {
+				fetch("/video_feed", { method: "HEAD" })
+					.then((response) => {
+						if (response.ok) {
+							videoFeed.src = "/video_feed";
+						} else {
+							throw new Error("Stream not ready");
+						}
+					})
+					.catch((error) => {
+						console.error("Stream error:", error);
+						updateUIState(STATE.ERROR);
+					});
+			}
+
+			// Add load event listener to video feed
+			videoFeed.onload = function () {
+				updateUIState(STATE.CONNECTED);
+			};
+
+			// Add error handling for video feed
+			videoFeed.onerror = function () {
+				updateUIState(STATE.ERROR);
+				// Retry connection after 5 seconds
+				setTimeout(checkStreamStatus, 5000);
+			};
+
+			// Initial stream check
+			checkStreamStatus();
+
+			function setQuickRange(value, unit) {
+				currentRangeType = 'quick';
+				currentRangeValue = value;
+				currentRangeUnit = unit;
+				currentCustomStart = null;
+				currentCustomEnd = null;
+			
+				// Initial update
+				updateRangeStats();
+			}
+
+			function fetchCustomRange() {
+				const startTime = document.getElementById("startTime").value;
+				const endTime = document.getElementById("endTime").value;
+			
+				if (!startTime || !endTime) {
+					alert("Please select both start and end times");
+					return;
+				}
+			
+				currentRangeType = 'custom';
+				currentRangeValue = null;
+				currentRangeUnit = null;
+				currentCustomStart = startTime;
+				currentCustomEnd = endTime;
+			
+				// Initial update
+				updateRangeStats();
+			}
+
+			function updateRangeStats() {
+				let startParam, endParam;
+			
+				if (currentRangeType === 'quick') {
+					const end = new Date();
+					const start = new Date();
+			
+					switch (currentRangeUnit) {
+						case "seconds":
+							start.setSeconds(start.getSeconds() - currentRangeValue);
+							break;
+						case "minutes":
+							start.setMinutes(start.getMinutes() - currentRangeValue);
+							break;
+						case "hours":
+							start.setHours(start.getHours() - currentRangeValue);
+							break;
+					}
+			
+					startParam = start.toISOString();
+					endParam = end.toISOString();
+			
+					// Update the input fields
+					document.getElementById("startTime").value = start.toISOString().slice(0, 16);
+					document.getElementById("endTime").value = end.toISOString().slice(0, 16);
+				} else if (currentRangeType === 'custom') {
+					startParam = new Date(currentCustomStart).toISOString();
+					endParam = new Date(currentCustomEnd).toISOString();
+				} else {
+					return; // No range selected
+				}
+			
+				fetch(`/stats?start_time=${startParam}&end_time=${endParam}`)
+					.then(response => response.json())
+					.then(stats => {
+						const container = document.getElementById("range-stats-container");
+						container.innerHTML = "";
+						Object.entries(stats).forEach(([id, zone]) => {
+							container.innerHTML += `
+								<div class="stats-card">
+									<h4>${zone.name} - ${currentRangeType === 'quick' ? 
+										`Last ${currentRangeValue}${currentRangeUnit.charAt(0)}` : 
+										'Custom Range'}</h4>
+									<p>Entries: ${zone.entry}</p>
+									<p>Exits: ${zone.exit}</p>
+									${currentRangeType === 'quick' && currentRangeValue <= 10 && currentRangeUnit === 'seconds' ?
+										`<p>Current Count: ${zone.current}</p>` :
+										`<p>Peak Count: ${zone.peak}</p>`}
+								</div>
+							`;
+						});
+					})
+					.catch(error => {
+						console.error("Error fetching range stats:", error);
+						container.innerHTML = '<div class="alert alert-danger">Error loading statistics</div>';
+					});
+			}
+
+			// Stats update with error handling
+			// Initialize datetime inputs with current time range
+			document.addEventListener("DOMContentLoaded", function () {
+				const end = new Date();
+				const start = new Date();
+				start.setHours(start.getHours() - 1); // Default to last hour
+
+				document.getElementById("startTime").value = start
+					.toISOString()
+					.slice(0, 16);
+				document.getElementById("endTime").value = end
+					.toISOString()
+					.slice(0, 16);
+			});
+
+			function updateStats() {
+				// Keep only the all-time stats update
+				fetch("/stats")
+					.then((response) => {
+						if (!response.ok) throw new Error("Network response was not ok");
+						return response.json();
+					})
+					.then((stats) => {
+						const container = document.getElementById("stats-container");
+						container.innerHTML = "";
+						Object.entries(stats).forEach(([id, zone]) => {
+							container.innerHTML += `
+								<div class="stats-card">
+									<h4>${zone.name} - All Time</h4>
+									<p>Total Entries: ${zone.entry}</p>
+									<p>Total Exits: ${zone.exit}</p>
+									<p>Current Count: ${zone.current}</p>
+								</div>
+							`;
+						});
+					})
+					.catch((error) => {
+						console.error("Error fetching stats:", error);
+					});
+			}
+
+			function updateAllStats() {
+				updateStats(); // Update all-time stats
+				if (currentRangeType) {
+					updateRangeStats(); // Update range stats if a range is selected
+				}
+			}
+
+			// // Start/Stop controls with state management
+			// document.getElementById("startBtn").addEventListener("click", () => {
+			//     updateUIState(STATE.LOADING);
+			//     fetch("/start", { method: "POST" })
+			//         .then(response => response.json())
+			//         .then(data => {
+			//             console.log(data.message);
+			//             checkStreamStatus();
+			//         })
+			//         .catch(error => {
+			//             console.error("Error starting process:", error);
+			//             updateUIState(STATE.ERROR);
+			//         });
+			// });
+
+			// document.getElementById("stopBtn").addEventListener("click", () => {
+			//     fetch("/stop", { method: "POST" })
+			//         .then(response => response.json())
+			//         .then(data => {
+			//             console.log(data.message);
+			//             updateUIState(STATE.LOADING);
+			//         })
+			//         .catch(error => {
+			//             console.error("Error stopping process:", error);
+			//         });
+			// });
+
+			// Update stats periodically
+			setInterval(updateAllStats, 1000);
+		</script>
 	</body>
 </html>
 

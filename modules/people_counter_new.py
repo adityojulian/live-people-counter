@@ -54,8 +54,8 @@ class PeopleCounterNew:
         """Set output streaming URL"""
         self.output_url = output_url
 
-    def add_zone(self, points, name=None, id=None):
-        """Add a new counting zone."""
+    def add_zone(self, points, name=None, id=None, initial_entries=0, initial_exits=0, initial_count=0):
+        """Add a new counting zone with initial counts."""
         zone_id = id if id is not None else len(self.polygons)
         # Convert points to integers if they aren't already
         points = [[int(x), int(y)] for x, y in points]
@@ -63,8 +63,8 @@ class PeopleCounterNew:
         self.polygons[zone_id] = {
             "points": points,
             "name": name or f"Zone {zone_id + 1}",
-            "entry": 0,
-            "exit": 0,
+            "entry": initial_entries,
+            "exit": initial_exits,
             "current": 0
         }
         self.polygon_arrays[zone_id] = np.array(points)
@@ -73,17 +73,68 @@ class PeopleCounterNew:
     def update_zones(self, zones_data):
         """Update zones from web interface data."""
         self.clear_zones()
-        for i, zone in enumerate(zones_data):
-            # Check if points is a list of dicts with 'x', 'y' keys
+        for zone in zones_data:
+            # Convert points format if needed
             if isinstance(zone.get('points', [])[0], dict):
-                # Convert from {x: X, y: Y} format to [X, Y] format
                 points = [[p['x'], p['y']] for p in zone['points']]
             else:
-                # Already in correct format
                 points = zone['points']
-                
-            self.add_zone(points, zone.get('name', f'Zone {i+1}'), zone.get('id'))
+            
+            # Add zone with initial counts if available
+            self.add_zone(
+                points=points,
+                name=zone.get('name', f'Zone {len(self.polygons) + 1}'),
+                id=zone.get('id'),
+                initial_entries=zone.get('initial_entries', 0),
+                initial_exits=zone.get('initial_exits', 0),
+                initial_count=zone.get('initial_count', 0)
+            )
+            
+    def add_single_zone(self, points, name=None, id=None, initial_entries=0, initial_exits=0, initial_count=0):
+        """Add a single new counting zone without affecting existing zones."""
+        zone_id = id if id is not None else max(self.polygons.keys(), default=-1) + 1
+        points = [[int(x), int(y)] for x, y in points]
+        
+        self.polygons[zone_id] = {
+            "points": points,
+            "name": name or f"Zone {zone_id + 1}",
+            "entry": initial_entries,
+            "exit": initial_exits,
+            "current": initial_count
+        }
+        self.polygon_arrays[zone_id] = np.array(points)
+        return zone_id
 
+    def update_single_zone(self, zone_id, **kwargs):
+        """Update an existing zone's properties without affecting other zones."""
+        if zone_id not in self.polygons:
+            raise ValueError(f"Zone {zone_id} does not exist")
+            
+        if 'points' in kwargs:
+            points = [[int(x), int(y)] for x, y in kwargs['points']]
+            self.polygons[zone_id]['points'] = points
+            self.polygon_arrays[zone_id] = np.array(points)
+            
+        if 'name' in kwargs:
+            self.polygons[zone_id]['name'] = kwargs['name']
+
+        # Don't update counts unless explicitly provided
+        if 'initial_entries' in kwargs:
+            self.polygons[zone_id]['entry'] = kwargs['initial_entries']
+        if 'initial_exits' in kwargs:
+            self.polygons[zone_id]['exit'] = kwargs['initial_exits']
+        if 'initial_count' in kwargs:
+            self.polygons[zone_id]['current'] = kwargs['initial_count']
+
+    def delete_zone(self, zone_id):
+        """Delete a specific zone without affecting others."""
+        if zone_id in self.polygons:
+            del self.polygons[zone_id]
+            del self.polygon_arrays[zone_id]
+            # Clean up track history for this zone
+            for track in self.track_history.values():
+                if zone_id in track:
+                    del track[zone_id]
 
     def clear_zones(self):
         """Clear all counting zones."""
