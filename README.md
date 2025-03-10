@@ -1,13 +1,13 @@
 # Live People Counter from CCTV Footage
 <p align="center"><img align="center" width="700" src="./assets/dashboard.png"></p>
-<h4 align="center" src=""><a href="https://drive.google.com/file/d/1tr_8zMjEX8Ag82TXaESDhocHI17gWiUn/view?usp=sharing">Initialization Demo Video</a></h4>
+<h4 align="center" src=""><a href="">Initialization Demo Video</a></h4>
 
 ## 🔗 README Quick Links 
-[Technical Notes](./TECHNICAL_README.md) - for more details on how the detection and tracking works.
+[Technical Notes](https://github.com/adityojulian/live-people-counter/blob/main/TECHNICAL_README.md) - for more details on how the detection and tracking works.
 
-[API Documentation](//API_README.md) - for more details on all available endpoint implemented in this system.
+[API Documentation](https://github.com/adityojulian/live-people-counter/blob/main/API_README.md) - for more details on all available endpoint implemented in this system.
 
-[People Counter Class](./modules/README.md) - for more details on the functionalities and implementation of the main module (detection and tracking).
+[People Counter Class](https://github.com/adityojulian/live-people-counter/blob/main/modules/README.md) - for more details on the functionalities and implementation of the main module (detection and tracking).
 
 ## 📌 Table of Contents
 [1. Object Detection & Tracking Process](#1-object-detection--tracking-process)
