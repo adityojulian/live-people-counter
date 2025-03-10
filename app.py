@@ -28,6 +28,25 @@ camera_url = "https://cctvjss.jogjakota.go.id/malioboro/NolKm_Utara.stream/playl
 zones_data = []
 is_running = True
 
+# Add this near the top with other global variables
+AVAILABLE_MODELS = {
+    'yolov8n': {
+        'path': 'yolov8n.pt',
+        'description': 'Fastest, lowest accuracy'
+    },
+    'yolo11n': {
+        'path': 'yolo11n.pt',
+        'description': 'Balance of speed and accuracy'
+    },
+    'yolo11s': {
+        'path': 'yolo11s.pt',
+        'description': 'Leaning towards accuracy, slower but still fast'
+    },
+}
+
+# Default model
+CURRENT_MODEL = 'yolo11s'
+
 def init_database():
     """Initialize database tables"""
     try:
@@ -97,14 +116,21 @@ def initialize_counter():
             
             zones_data.append(zone_data)
     
+    # counter = PeopleCounterNew(
+    #     video_source=camera_url,
+    #     model_path="yolo11s.pt",
+    #     target_fps=30,
+    #     buffer_size=5,
+    #     zones=zones_data
+    # )
+    
     counter = PeopleCounterNew(
         video_source=camera_url,
-        model_path="yolo11s.pt",
+        model_path=AVAILABLE_MODELS[CURRENT_MODEL]['path'],
         target_fps=30,
         buffer_size=5,
         zones=zones_data
     )
-    
     if is_running:
         counter.start()
         # Start database update thread
@@ -562,6 +588,43 @@ def set_camera():
         initialize_counter()
     
     return jsonify({"status": "success", "message": f"Camera set to {new_url}"})
+
+@app.route('/model', methods=['GET', 'POST'])
+def manage_model():
+    """Get or set the model configuration"""
+    global CURRENT_MODEL, counter
+    
+    if request.method == 'POST':
+        try:
+            data = request.json
+            model_key = data.get('model')
+            
+            if model_key not in AVAILABLE_MODELS:
+                return jsonify({'error': 'Invalid model selection'}), 400
+            
+            CURRENT_MODEL = model_key
+            
+            # Reinitialize counter with new model
+            with lock:
+                if counter is not None:
+                    counter.stop()
+                initialize_counter()
+            
+            return jsonify({
+                'status': 'success',
+                'message': f'Model changed to {model_key}',
+                'description': AVAILABLE_MODELS[model_key]['description']
+            })
+        except Exception as e:
+            print(f"Error changeing model: {e}")
+            return jsonify({"error": str(e)}), 500
+            
+    elif request.method == 'GET':
+        return jsonify({
+            'current': CURRENT_MODEL,
+            'available': AVAILABLE_MODELS,
+            'description': AVAILABLE_MODELS[CURRENT_MODEL]['description']
+        })
 
 # @app.route('/start', methods=['POST'])
 # def start_processing():

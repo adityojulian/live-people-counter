@@ -28,6 +28,13 @@
 			</div>
 			<div class="row justify-content-center">
 				<div class="col-md-8">
+					<div class="model-selection mb-3">
+						<h4>Model Selection</h4>
+						<select id="modelSelect" class="form-control">
+							<!-- Will be populated by JavaScript -->
+						</select>
+						<small id="modelDescription" class="form-text text-muted"></small>
+					</div>
 					<div class="video-container">
 						<!-- Add loading container -->
 						<div id="loadingContainer" class="loading-container">
@@ -333,6 +340,42 @@
 					updateRangeStats(); // Update range stats if a range is selected
 				}
 			}
+
+			// Populate model selection
+			fetch('/model')
+				.then(response => response.json())
+				.then(data => {
+					const select = document.getElementById('modelSelect');
+					Object.keys(data.available).forEach(key => {
+						const option = document.createElement('option');
+						option.value = key;
+						option.text = key;
+						option.selected = (key === data.current);
+						select.appendChild(option);
+					});
+					document.getElementById('modelDescription').textContent = data.description;
+				});
+
+			// Handle model change
+			document.getElementById('modelSelect').addEventListener('change', function(e) {
+				fetch('/model', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({
+						model: e.target.value
+					})
+				})
+				.then(response => response.json())
+				.then(data => {
+					if (data.error) {
+						alert(data.error);
+					} else {
+						document.getElementById('modelDescription').textContent = data.description;
+					}
+				});
+			});
 
 			// // Start/Stop controls with state management
 			// document.getElementById("startBtn").addEventListener("click", () => {

@@ -79,7 +79,7 @@ The **video stream** is obtained from **CCTV cameras**.
 
 -   **Example CCTV Source (Currently using):**
     
-    ```http
+    ```plaintext
     https://cctvjss.jogjakota.go.id/malioboro/NolKm_Utara.stream/playlist.m3u8
     ```
 
@@ -98,7 +98,7 @@ A more detailed  API documentation can be found [here](./API_README.md). For sim
  | `/stats` | `GET` | Retrieve the latest or historical zone statistics. |
  | `/graph-data` | `GET` | Get historical data for visualization. |
 
-## 5. Dashboard Overview**
+## 5. Dashboard Overview
 
 -   **Live Video Feed** 📹
     - Displays **real-time people tracking** with a bounding box.
@@ -137,8 +137,7 @@ A more detailed  API documentation can be found [here](./API_README.md). For sim
     
 3.  **Access the web dashboard**
     
-    -   Open: **[http://localhost:5000](http://localhost:5000/)**
-    - 
+    -   Open: [http://localhost:5000](http://localhost:5000/)
 ### **Changing YOLO Model**
 
 Change to lighter model if the program becomes too heavy to run by modifying the `Dockerfile`:
