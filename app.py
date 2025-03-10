@@ -6,7 +6,7 @@ import threading
 import time
 from datetime import datetime, timedelta
 import pytz
-from instance.models import db, Zone, ZoneCount
+from instance.models import db, Zone, ZoneCount, Camera
 from modules.people_counter_new import PeopleCounterNew
 import os
 from pathlib import Path
@@ -15,7 +15,7 @@ from sqlalchemy.sql import func
 
 app = Flask(__name__, static_folder='static')
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///main.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///secondary.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
@@ -27,6 +27,7 @@ camera_url = "https://cctvjss.jogjakota.go.id/malioboro/NolKm_Utara.stream/playl
 # camera_url = "https://eofficev2.bekasikota.go.id/backupcctv/m3/Depan_SMP_Strada_Budi_luhur.m3u8"
 zones_data = []
 is_running = True
+current_camera_id = None
 
 # Add this near the top with other global variables
 AVAILABLE_MODELS = {
@@ -59,14 +60,33 @@ def init_database():
 
 def initialize_counter():
     """Initialize or reinitialize the people counter"""
-    global counter, camera_url, is_running
+    global counter, camera_url, is_running, current_camera_id
     
     if counter is not None:
         counter.stop()
         
     # Retrieve zones and their last counts from the database
     with app.app_context():
-        active_zones = Zone.query.filter_by(active=True).order_by(Zone.id).all()
+        # Get current camera
+        if current_camera_id is None:
+            camera = Camera.query.filter_by(active=True).first()
+            if camera:
+                current_camera_id = camera.id
+            else:
+                print("No active cameras found")
+                return
+        else:
+            camera = Camera.query.get(current_camera_id)
+            if not camera or not camera.active:
+                print("Selected camera not available")
+                return
+        
+        # Get zones for current camera
+        active_zones = Zone.query.filter_by(
+            active=True, 
+            camera_id=current_camera_id
+        ).order_by(Zone.id).all()
+        
         active_zone_ids = [zone.id for zone in active_zones]
 
         # Get latest counts for active zones
@@ -115,17 +135,9 @@ def initialize_counter():
                 })
             
             zones_data.append(zone_data)
-    
-    # counter = PeopleCounterNew(
-    #     video_source=camera_url,
-    #     model_path="yolo11s.pt",
-    #     target_fps=30,
-    #     buffer_size=5,
-    #     zones=zones_data
-    # )
-    
+
     counter = PeopleCounterNew(
-        video_source=camera_url,
+        video_source=camera.url,
         model_path=AVAILABLE_MODELS[CURRENT_MODEL]['path'],
         target_fps=30,
         buffer_size=5,
@@ -571,24 +583,6 @@ def show_graph():
     """Render graph visualization page"""
     return render_template('graph.html')
 
-@app.route('/camera', methods=['POST'])
-def set_camera():
-    """Set camera source"""
-    global camera_url, is_running
-    
-    data = request.json
-    new_url = data.get('url', 0)
-    
-    # Update camera URL
-    camera_url = new_url
-    
-    # Reinitialize counter with new source
-    with lock:
-        is_running = False  # Pause processing during reinitialization
-        initialize_counter()
-    
-    return jsonify({"status": "success", "message": f"Camera set to {new_url}"})
-
 @app.route('/model', methods=['GET', 'POST'])
 def manage_model():
     """Get or set the model configuration"""
@@ -625,6 +619,106 @@ def manage_model():
             'available': AVAILABLE_MODELS,
             'description': AVAILABLE_MODELS[CURRENT_MODEL]['description']
         })
+    
+@app.route('/cameras', methods=['GET', 'POST'])
+def manage_cameras():
+    """Manage camera sources"""
+    global current_camera_id
+    
+    if request.method == 'POST':
+        try:
+            data = request.json
+            with app.app_context():
+                camera = Camera(
+                    name=data['name'],
+                    url=data['url']
+                )
+                db.session.add(camera)
+                db.session.commit()
+                
+                # Set as current if no camera is selected
+                if current_camera_id is None:
+                    current_camera_id = camera.id
+                    initialize_counter()
+                
+                return jsonify(camera.to_dict())
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    
+    elif request.method == 'GET':
+        try:
+            with app.app_context():
+                cameras = Camera.query.filter_by(active=True).all()
+                return jsonify({
+                    'cameras': [c.to_dict() for c in cameras],
+                    'current': current_camera_id
+                })
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+        
+@app.route('/cameras/<int:camera_id>', methods=['PUT', 'DELETE'])
+def manage_single_camera(camera_id):
+    """Manage individual camera"""
+    global current_camera_id, counter
+    
+    try:
+        with app.app_context():
+            camera = Camera.query.get(camera_id)
+            if not camera:
+                return jsonify({"error": "Camera not found"}), 404
+                
+            if request.method == 'DELETE':
+                camera.active = False
+                db.session.commit()
+                
+                if current_camera_id == camera_id:
+                    # Switch to another camera if available
+                    another_camera = Camera.query.filter_by(active=True).first()
+                    if another_camera:
+                        current_camera_id = another_camera.id
+                        initialize_counter()
+                    else:
+                        current_camera_id = None
+                        if counter:
+                            counter.stop()
+                
+                return jsonify({"status": "success"})
+                
+            elif request.method == 'PUT':
+                data = request.json
+                if 'name' in data:
+                    camera.name = data['name']
+                if 'url' in data:
+                    camera.url = data['url']
+                    if current_camera_id == camera_id:
+                        initialize_counter()  # Reinitialize with new URL
+                db.session.commit()
+                return jsonify(camera.to_dict())
+                
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/cameras/switch/<int:camera_id>', methods=['POST'])
+def switch_camera(camera_id):
+    """Switch to a different camera"""
+    global current_camera_id, counter
+    
+    try:
+        with app.app_context():
+            camera = Camera.query.get(camera_id)
+            if not camera or not camera.active:
+                return jsonify({"error": "Camera not found"}), 404
+            
+            current_camera_id = camera.id
+            initialize_counter()
+            
+            return jsonify({
+                "status": "success",
+                "message": f"Switched to camera: {camera.name}"
+            })
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # @app.route('/start', methods=['POST'])
 # def start_processing():

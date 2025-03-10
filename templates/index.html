@@ -28,6 +28,16 @@
 			</div>
 			<div class="row justify-content-center">
 				<div class="col-md-8">
+					<div class="camera-selection mb-3">
+						<h4>Camera Selection</h4>
+						<select id="cameraSelect" class="form-control">
+							<!-- Will be populated by JavaScript -->
+						</select>
+						<div class="mt-2">
+							<button class="btn btn-sm btn-primary" onclick="addCamera()">Add Camera</button>
+							<button class="btn btn-sm btn-danger" onclick="deleteCamera()">Delete Camera</button>
+						</div>
+					</div>
 					<div class="model-selection mb-3">
 						<h4>Model Selection</h4>
 						<select id="modelSelect" class="form-control">
@@ -120,12 +130,12 @@
 						>
 							Last 1h
 						</button>
-						<button
+						<!-- <button
 							onclick="setQuickRange(24, 'hours')"
 							class="btn btn-sm btn-outline-secondary"
 						>
 							Last 24h
-						</button>
+						</button> -->
 					</div>
 
 					<div id="range-stats-container" class="stats-row"></div>
@@ -377,6 +387,87 @@
 				});
 			});
 
+			// Populate camera selection
+			function loadCameras() {
+				fetch('/cameras')
+					.then(response => response.json())
+					.then(data => {
+						const select = document.getElementById('cameraSelect');
+						select.innerHTML = ''; // Clear existing options
+						
+						data.cameras.forEach(camera => {
+							const option = document.createElement('option');
+							option.value = camera.id;
+							option.text = camera.name;
+							option.selected = (camera.id === data.current);
+							select.appendChild(option);
+						});
+					});
+			}
+
+			// Handle camera change
+			document.getElementById('cameraSelect').addEventListener('change', function(e) {
+				fetch(`/cameras/switch/${e.target.value}`, {
+					method: 'POST'
+				})
+				.then(response => response.json())
+				.then(data => {
+					if (data.error) {
+						alert(data.error);
+					} else {
+						// Reload page to reinitialize everything
+						location.reload();
+					}
+				});
+			});
+
+			function addCamera() {
+				const name = prompt('Enter camera name:');
+				const url = prompt('Enter camera URL:');
+				if (name && url) {
+					fetch('/cameras', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+						},
+						body: JSON.stringify({ name, url })
+					})
+					.then(response => response.json())
+					.then(data => {
+						if (data.error) {
+							alert(data.error);
+						} else {
+							loadCameras();
+						}
+					});
+				}
+			}
+
+			function deleteCamera() {
+				const select = document.getElementById('cameraSelect');
+				const cameraId = select.value;
+				
+				if (confirm('Are you sure you want to delete this camera?')) {
+					fetch(`/cameras/${cameraId}`, {
+						method: 'DELETE'
+					})
+					.then(response => response.json())
+					.then(data => {
+						if (data.error) {
+							alert(data.error);
+						} else {
+							loadCameras();
+						}
+					});
+				}
+			}
+			
+			// Load cameras on page load
+			document.addEventListener('DOMContentLoaded', loadCameras);
+
+			// Update stats periodically
+			setInterval(updateAllStats, 1000);
+
 			// // Start/Stop controls with state management
 			// document.getElementById("startBtn").addEventListener("click", () => {
 			//     updateUIState(STATE.LOADING);
@@ -403,9 +494,6 @@
 			//             console.error("Error stopping process:", error);
 			//         });
 			// });
-
-			// Update stats periodically
-			setInterval(updateAllStats, 1000);
 		</script>
 	</body>
 </html>

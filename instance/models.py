@@ -4,13 +4,30 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
+class Camera(db.Model):
+    """Camera source configuration"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    url = db.Column(db.String(500), nullable=False)
+    active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(pytz.UTC))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'url': self.url,
+            'active': self.active
+        }
+
 class Zone(db.Model):
     """Zone configuration model"""
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     points = db.Column(db.JSON, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(pytz.UTC))
-    active = db.Column(db.Boolean, default=True)  # To soft delete zones
+    active = db.Column(db.Boolean, default=True) # To soft delete zones
+    camera_id = db.Column(db.Integer, db.ForeignKey('camera.id'), nullable=False) # Camera source
     
     def to_dict(self):
         return {
@@ -50,3 +67,4 @@ class ZoneCount(db.Model):
                 .distinct(ZoneCount.zone_id)
                 .order_by(ZoneCount.zone_id, ZoneCount.timestamp.desc())
                 .all())
+    
