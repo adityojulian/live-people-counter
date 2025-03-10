@@ -11,11 +11,11 @@ from modules.people_counter_new import PeopleCounterNew
 import os
 from pathlib import Path
 from sqlalchemy.sql import func
-
+import torch
 
 app = Flask(__name__, static_folder='static')
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///secondary.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
@@ -47,6 +47,11 @@ AVAILABLE_MODELS = {
 
 # Default model
 CURRENT_MODEL = 'yolo11s'
+
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+print(f"Using device: {DEVICE}")
+if DEVICE == 'cuda':
+    print(f"GPU: {torch.cuda.get_device_name()}")
 
 def init_database():
     """Initialize database tables"""
@@ -415,7 +420,10 @@ def manage_single_zone(zone_id):
     
     try:
         with app.app_context():
-            zone = Zone.query.filter_by(camera_id=current_camera_id).get(zone_id)
+            zone = Zone.query.filter_by(
+                id=zone_id, 
+                camera_id=current_camera_id
+            ).first()
             if not zone:
                 return jsonify({"status": "error", "message": "Zone not found"}), 404
 
@@ -438,7 +446,15 @@ def manage_single_zone(zone_id):
                 if 'name' in data:
                     zone.name = data['name']
                 if 'points' in data:
-                    zone.points = data['points']
+                    # Convert points format properly
+                    points = []
+                    for point in data['points']:
+                        if isinstance(point, dict):
+                            points.append([int(float(point['x'])), int(float(point['y']))])
+                        elif isinstance(point, list):
+                            points.append([int(float(point[0])), int(float(point[1]))])
+                    zone.points = points
+                    
                 db.session.commit()
                 
                 # Update counter

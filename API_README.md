@@ -12,20 +12,170 @@ If deployed on a server, replace `localhost` with the server IP or domain.
 
 ## **📌 API Endpoints Overview**
 | Endpoint | Method | Description | 
-|------------------------|--------|------------------------------------------------------| 
+|------------------------|--------|------------------------------------------------------|
+| **Camera Management** |
+| `/cameras` | `GET` | Get list of available cameras. |
+| `/cameras` | `POST` | Add a new camera. |
+| `/cameras/<camera_id>` | `DELETE` | Deactivate a camera. |
+| `/cameras/switch/<camera_id>` | `POST` | Switch to a different camera. |
+| **Model Management** |
+| `/model` | `GET` | Get available models and current selection. |
+| `/model` | `POST` | Change the active model. |
 | **Video Streaming** | 
- |  `/video_feed` | `GET` | Stream processed video with detection and tracking. |
+|  `/video_feed` | `GET` | Stream processed video with detection and tracking. |
 | **Zone Management** |
- | `/zones` | `GET` | Get a list of active counting zones. | 
- | `/zones` | `POST` | Create or update multiple counting zones. |
- | `/zones/<zone_id>` | `PUT` | Update an existing zone. | 
- | `/zones/<zone_id>` | `DELETE` | Deactivate a zone. | | `/zones/new` | `POST` | Create a new zone. |
- | **People Count Statistics** |
- | `/stats` | `GET` | Retrieve the latest or historical zone statistics. |
- | `/graph-data` | `GET` | Get historical data for visualization. |
+| `/zones` | `GET` | Get a list of active counting zones. | 
+| `/zones` | `POST` | Create or update multiple counting zones. |
+| `/zones/<zone_id>` | `PUT` | Update an existing zone. | 
+| `/zones/<zone_id>` | `DELETE` | Deactivate a zone. | | `/zones/new` | `POST` | Create a new zone. |
+| **People Count Statistics** |
+| `/stats` | `GET` | Retrieve the latest or historical zone statistics. |
+| `/graph-data` | `GET` | Get historical data for visualization. |
 
+## **📌 1️⃣ Camera Management**
 
-## **📌 1️⃣ Video Streaming**
+### **📍 `GET /cameras`**
+
+#### **Description**
+Retrieves all available cameras and their configurations.
+
+#### **Response**
+```json
+{
+  "cameras": [
+    {
+      "id": 1,
+      "name": "Malioboro North",
+      "url": "https://example.com/stream1.m3u8",
+      "active": true
+    }
+  ],
+  "current": 1
+}
+```
+
+### **📍 `POST /cameras`**
+
+#### **Description**
+Adds a new camera source.
+
+#### **Request**
+```json
+{
+  "name": "City Square",
+  "url": "https://example.com/stream2.m3u8"
+}
+```
+
+#### **Response**
+```json
+{
+  "id": 2,
+  "name": "City Square",
+  "url": "https://example.com/stream2.m3u8",
+  "active": true
+}
+```
+
+### **📍 `PUT /cameras/<camera_id>`**
+
+#### **Description**
+Updates camera settings.
+
+#### **Request**
+```json
+{
+  "name": "Updated Name",
+  "url": "https://example.com/new-stream.m3u8"
+}
+```
+
+#### **Response**
+```json
+{
+  "id": 1,
+  "name": "Updated Name",
+  "url": "https://example.com/new-stream.m3u8",
+  "active": true
+}
+```
+
+### **📍 `DELETE /cameras/<camera_id>`**
+
+#### **Description**
+Deactivates a camera (soft delete).
+
+#### **Response**
+```json
+{
+  "status": "success"
+}
+```
+
+### **📍 `POST /cameras/switch/<camera_id>`**
+
+#### **Description**
+Switches to a different camera source.
+
+#### **Response**
+```json
+{
+  "status": "success",
+  "message": "Switched to camera: City Square"
+}
+```
+
+## **📌 2️⃣ Model Management**
+
+### **📍 `GET /model`**
+
+#### **Description**
+Gets available models and current selection.
+
+#### **Response**
+```json
+{
+  "current": "yolov8n",
+  "available": {
+    "yolov8n": {
+      "path": "yolov8n.pt",
+      "description": "Fastest, lowest accuracy"
+    },
+    "yolo11n": {
+      "path": "yolo11n.pt",
+      "description": "Balance of speed and accuracy"
+    },
+    "yolo11s": {
+      "path": "yolo11s.pt",
+      "description": "Leaning towards accuracy, slower but still fast"
+    }
+  },
+  "description": "Fastest, lowest accuracy"
+}
+```
+
+### **📍 `POST /model`**
+
+#### **Description**
+Changes the active model.
+
+#### **Request**
+```json
+{
+  "model": "yolo11s"
+}
+```
+
+#### **Response**
+```json
+{
+  "status": "success",
+  "message": "Model changed to yolo11s",
+  "description": "Leaning towards accuracy, slower but still fast"
+}
+```
+
+## **📌 3️⃣ Video Streaming**
 
 ### **📍 `GET /video_feed`**
 
@@ -50,7 +200,7 @@ Host: localhost:5000
 <img src="http://localhost:5000/video_feed">
 ```
 
-## **📌 2️⃣ Zone Management**
+## **📌 4️⃣ Zone Management**
 
 ### **📍 `GET /zones`**
 
@@ -196,7 +346,7 @@ Content-Type: application/json
 
 ----------
 
-## **📌 3️⃣ People Count Statistics**
+## **📌 5️⃣ People Count Statistics**
 
 ### **📍 `GET /stats`**
 
