@@ -89,15 +89,16 @@ def initialize_counter():
         
         active_zone_ids = [zone.id for zone in active_zones]
 
-        # Get latest counts for active zones
         latest_counts = db.session.query(
             ZoneCount,
-            Zone.name
+            Zone.name,
+            Zone.camera_id
         ).join(
             Zone,
             ZoneCount.zone_id == Zone.id
         ).filter(
-            Zone.id.in_(active_zone_ids)
+            Zone.id.in_(active_zone_ids),
+            Zone.camera_id == current_camera_id
         ).filter(
             ZoneCount.id.in_(
                 db.session.query(func.max(ZoneCount.id))
@@ -125,7 +126,7 @@ def initialize_counter():
                     'initial_exits': last_count.exits,
                     'initial_count': last_count.current_count
                 })
-                print("ZONE DATA: ", zone_data)
+                # print("ZONE DATA: ", zone_data)
             else:
                 # If no previous counts exist, start from 0
                 zone_data.update({
@@ -194,6 +195,8 @@ def video_feed():
 @app.route('/stats')
 def get_stats():
     """Get zone statistics with optional time filtering"""
+    global current_camera_id
+    
     zone_id = request.args.get('zone_id', type=int)
     time_range = request.args.get('range')  # in minutes
     start_time = request.args.get('start_time')
@@ -201,8 +204,16 @@ def get_stats():
     
     with app.app_context():
         try:
-            # Get active zones in order
-            active_zones = Zone.query.filter_by(active=True).order_by(Zone.id).all()
+            # Check if we have an active camera
+            if current_camera_id is None:
+                return jsonify({"error": "No active camera"}), 400
+                
+            # Get active zones for current camera
+            active_zones = Zone.query.filter_by(
+                active=True, 
+                camera_id=current_camera_id
+            ).order_by(Zone.id).all()
+            
             active_zone_ids = [zone.id for zone in active_zones]
             
             if time_range or (start_time and end_time):
@@ -233,15 +244,11 @@ def get_stats():
                     ).order_by(ZoneCount.timestamp.asc()).all()
                     
                     if counts_in_range:
-                        # Get first and last count in range
                         first_count = counts_in_range[0]
                         last_count = counts_in_range[-1]
                         
-                        # Calculate differences within the range
                         entries_diff = last_count.entries - first_count.entries
                         exits_diff = last_count.exits - first_count.exits
-                        
-                        # Get peak count in range
                         peak_count = max(c.current_count for c in counts_in_range)
                         
                         stats[zone.id] = {
@@ -249,46 +256,50 @@ def get_stats():
                             'entry': entries_diff,
                             'exit': exits_diff,
                             'peak': peak_count,
-                            'current': last_count.current_count
+                            'current': last_count.current_count,
+                            'camera_id': zone.camera_id
                         }
                     else:
-                        # No data in range
                         stats[zone.id] = {
                             'name': zone.name,
                             'entry': 0,
                             'exit': 0,
                             'peak': 0,
-                            'current': None
+                            'current': None,
+                            'camera_id': zone.camera_id
                         }
                 
                 return jsonify(stats)
             else:
-                    latest_counts = db.session.query(
-                        ZoneCount,
-                        Zone.name
-                    ).join(
-                        Zone,
-                        ZoneCount.zone_id == Zone.id
-                    ).filter(
-                        Zone.id.in_(active_zone_ids)
-                    ).filter(
-                        ZoneCount.id.in_(
-                            db.session.query(func.max(ZoneCount.id))
-                            .group_by(ZoneCount.zone_id)
-                        )
-                    ).all()
+                # Get latest counts for current camera's zones
+                latest_counts = db.session.query(
+                    ZoneCount,
+                    Zone.name,
+                    Zone.camera_id
+                ).join(
+                    Zone,
+                    ZoneCount.zone_id == Zone.id
+                ).filter(
+                    Zone.id.in_(active_zone_ids),
+                    Zone.camera_id == current_camera_id
+                ).filter(
+                    ZoneCount.id.in_(
+                        db.session.query(func.max(ZoneCount.id))
+                        .group_by(ZoneCount.zone_id)
+                    )
+                ).all()
 
-                    # Build response using counter-style indexing
-                    stats = {}
-                    for i, (count, zone_name) in enumerate(latest_counts):
-                        stats[count.zone_id] = {  # Convert to string to match counter output
-                            'name': zone_name,
-                            'entry': count.entries,
-                            'exit': count.exits,
-                            'current': count.current_count
-                        }
-                    
-                    return jsonify(stats)
+                stats = {}
+                for count, zone_name, camera_id in latest_counts:
+                    stats[count.zone_id] = {
+                        'name': zone_name,
+                        'entry': count.entries,
+                        'exit': count.exits,
+                        'current': count.current_count,
+                        'camera_id': camera_id
+                    }
+                
+                return jsonify(stats)
                     
         except Exception as e:
             print(f"Error in get_stats: {str(e)}")
@@ -298,17 +309,27 @@ def get_stats():
 @app.route('/zones', methods=['GET', 'POST'])
 def manage_zones():
     """Get or set zone configurations"""
-    global counter
+    global counter, current_camera_id
     
     if request.method == 'POST':
         try:
             zones_data = request.json
             print("Received zones data:", zones_data)
             
+            # Check if we have an active camera
+            if current_camera_id is None:
+                return jsonify({
+                    "status": "error", 
+                    "message": "No active camera selected"
+                }), 400
+            
             with app.app_context():
                 try:
-                    # Get existing zones indexed by ID
-                    existing_zones = {zone.id: zone for zone in Zone.query.all()}
+                    # Get existing zones indexed by ID for current camera
+                    existing_zones = {
+                        zone.id: zone 
+                        for zone in Zone.query.filter_by(camera_id=current_camera_id).all()
+                    }
                     
                     # Track which zones to keep active
                     zones_to_update = []
@@ -336,11 +357,12 @@ def manage_zones():
                                 zone.active = True
                                 zones_to_update.append(zone)
                             else:
-                                # Create new zone
+                                # Create new zone with camera_id
                                 zone = Zone(
                                     name=zone_name,
                                     points=points,
-                                    active=True
+                                    active=True,
+                                    camera_id=current_camera_id
                                 )
                                 db.session.add(zone)
                                 zones_to_update.append(zone)
@@ -349,7 +371,7 @@ def manage_zones():
                             print(f"Error processing zone data:", e)
                             raise ValueError(f"Invalid zone data: {str(e)}")
                     
-                    # Deactivate zones not in the update
+                    # Deactivate zones not in the update for current camera only
                     for zone in existing_zones.values():
                         if zone not in zones_to_update:
                             zone.active = False
@@ -365,7 +387,6 @@ def manage_zones():
                                 'name': zone.name,
                                 'id': zone.id
                             } for zone in zones_to_update]
-                            print("ZONE CONFIGS: ", zone_configs)
                             counter.update_zones(zone_configs)
                     
                     return jsonify({"status": "success"})
@@ -381,7 +402,7 @@ def manage_zones():
     elif request.method == 'GET':
         try:
             with app.app_context():
-                zones = Zone.query.filter_by(active=True).all()
+                zones = current_camera_id.all()
                 return jsonify([zone.to_dict() for zone in zones])
         except Exception as e:
             print(f"Error fetching zones: {str(e)}")
@@ -394,7 +415,7 @@ def manage_single_zone(zone_id):
     
     try:
         with app.app_context():
-            zone = Zone.query.get(zone_id)
+            zone = Zone.query.filter_by(camera_id=current_camera_id).get(zone_id)
             if not zone:
                 return jsonify({"status": "error", "message": "Zone not found"}), 404
 
@@ -442,7 +463,7 @@ def manage_single_zone(zone_id):
 @app.route('/zones/new', methods=['POST'])
 def add_zone():
     """Add a new zone"""
-    global counter
+    global counter, current_camera_id
     
     try:
         data = request.json
@@ -457,9 +478,10 @@ def add_zone():
                     raise ValueError(f"Invalid point format: {point}")
             # Create new zone in database
             zone = Zone(
-                name=data.get('name', f'Zone {Zone.query.count() + 1}'),
+                name=data.get('name', f'Zone {Zone.query.filter_by(camera_id=current_camera_id).count() + 1}'),
                 points=points,
-                active=True
+                active=True,
+                camera_id=current_camera_id  # Add this line
             )
             db.session.add(zone)
             db.session.commit()
@@ -484,7 +506,7 @@ def setup_polygons():
     """Handle polygon setup page"""
     try:
         with app.app_context():
-            zones = Zone.query.filter_by(active=1).all()
+            zones = Zone.query.filter_by(active=1, camera_id=current_camera_id).all()
             zones_data = [zone.to_dict() for zone in zones]
             print("ZONE DATA", zones_data)
             
@@ -548,7 +570,7 @@ def get_graph_data():
         
         with app.app_context():
             # Get active zones first
-            active_zones = Zone.query.filter_by(active=True).all()
+            active_zones = Zone.query.filter_by(active=True, camera_id=current_camera_id).all()
             
             # Convert times to UTC datetime
             start_dt = datetime.fromisoformat(start_time).replace(tzinfo=pytz.UTC) if start_time else None

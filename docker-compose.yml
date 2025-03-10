@@ -6,6 +6,8 @@ services:
     volumes:
       - ./instance:/app/instance
       - ./yolov8n.pt:/app/yolov8n.pt  # Mount YOLO model
+      - ./yolo11s.pt:/app/yolo11s.pt  # Mount YOLO model
+      - ./yolo11n.pt:/app/yolo11n.pt  # Mount YOLO model
     deploy:
       resources:
         reservations:

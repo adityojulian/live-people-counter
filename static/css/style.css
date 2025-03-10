@@ -121,6 +121,10 @@ body {
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+.selection-all {
+	padding-top: 10px;
+}
+
 /* Responsive adjustments */
 @media (max-width: 1200px) {
 	.stats-card {

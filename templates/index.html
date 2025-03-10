@@ -12,38 +12,42 @@
 		/>
 	</head>
 	<body>
-		<div class="container-fluid">
-			<div class="row mb-3">
-				<div class="col">
-					<div class="controls">
-						<a href="/setup-polygons" class="btn btn-primary"
-							>Setup Counting Zones</a
-						>
-						<!-- Add this in the controls div in index.html -->
-						<a href="/graph" class="btn btn-info">View Traffic Analysis</a>
-						<!-- <button id="startBtn" class="btn btn-success">Start</button>
-						<button id="stopBtn" class="btn btn-danger">Stop</button> -->
-					</div>
-				</div>
-			</div>
+		<div class="container-fluid" style="padding-top: 20px;">
 			<div class="row justify-content-center">
 				<div class="col-md-8">
-					<div class="camera-selection mb-3">
-						<h4>Camera Selection</h4>
-						<select id="cameraSelect" class="form-control">
-							<!-- Will be populated by JavaScript -->
-						</select>
-						<div class="mt-2">
-							<button class="btn btn-sm btn-primary" onclick="addCamera()">Add Camera</button>
-							<button class="btn btn-sm btn-danger" onclick="deleteCamera()">Delete Camera</button>
+					<div class="row selection-all">
+						<div class="col-md-6">
+							<div class="camera-selection mb-3">
+								<h4>1. Camera Selection</h4>
+								<select id="cameraSelect" class="form-control">
+									<!-- Will be populated by JavaScript -->
+								</select>
+								<div class="mt-2">
+									<button class="btn btn-sm btn-primary" onclick="addCamera()">Add Camera</button>
+									<button class="btn btn-sm btn-danger" onclick="deleteCamera()">Delete Camera</button>
+								</div>
+							</div>
+						</div>
+						<div class="col-md-6">  <!-- Second column -->
+							<div class="model-selection mb-3">
+								<h4>2. Model Selection</h4>
+								<select id="modelSelect" class="form-control">
+									<!-- Will be populated by JavaScript -->
+								</select>
+								<small id="modelDescription" class="form-text text-muted"></small>
+							</div>
 						</div>
 					</div>
-					<div class="model-selection mb-3">
-						<h4>Model Selection</h4>
-						<select id="modelSelect" class="form-control">
-							<!-- Will be populated by JavaScript -->
-						</select>
-						<small id="modelDescription" class="form-text text-muted"></small>
+					<div class="row mb-3">
+						<div class="col">
+							<div class="controls d-flex align-items-center">
+								<h4 class="mb-0 me-3">3. Setup Zones</h4> 
+								<div class="button-group">
+									<a href="/setup-polygons" class="btn btn-primary me-2">Setup Counting Zones</a>
+									<a href="/graph" class="btn btn-info">View Traffic Analysis</a>
+								</div>
+							</div>
+						</div>
 					</div>
 					<div class="video-container">
 						<!-- Add loading container -->
