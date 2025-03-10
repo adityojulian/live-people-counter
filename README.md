@@ -84,10 +84,12 @@ The system uses **SQLite** to store data related to **zones** and **counting log
 
 The **video stream** is obtained from **CCTV cameras**.
 
--   **Example CCTV Source (Currently using):**
+-   **Example CCTV Source (Currently tried):**
     
     ```plaintext
     https://cctvjss.jogjakota.go.id/malioboro/NolKm_Utara.stream/playlist.m3u8
+    https://cctvjss.jogjakota.go.id/malioboro/NolKm_GdAgung.stream/playlist.m3u8
+    https://eofficev2.bekasikota.go.id/backupcctv/m3/Depan_SMP_Strada_Budi_luhur.m3u8
     ```
 
 ## 4. API Endpoints
@@ -120,9 +122,11 @@ A more detailed  API documentation can be found [here](./API_README.md). For sim
         - Add new camera sources via URL
         - Delete unused camera sources
         - Each camera maintains its own zones and statistics
+        
         > ⚠ Please note that the current implementation does not run multiple cameras concurrently, which means the detection and tracking do not run simultaneously for all cameras.
 
         > 💡 If you run the program on the background (without browser), the tracking for selected camera will keep running and the all statistics will keep getting updates.
+
     2. **Model Selection**
         - Choose from different YOLO models:
             - YOLOv8n: Fastest, lowest accuracy
@@ -148,9 +152,9 @@ A more detailed  API documentation can be found [here](./API_README.md). For sim
 
 ## 6. How to Run the System
 ### Pre-requisites
--  [Docker](https://docs.docker.com/get-docker/)
--  [Docker Compose](https://docs.docker.com/compose/install/)
+- [Docker](https://docs.docker.com/get-docker/)=
 - NVIDIA GPU with CUDA support (recommended)
+- Running Docker Engine
 
 
 ### **Using Docker (Recommended)**
