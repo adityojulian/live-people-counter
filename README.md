@@ -1,6 +1,13 @@
 # Live People Counter from CCTV Footage
 <p align="center"><img align="center" width="700" src="./assets/dashboard.png"></p>
 
+## 🔗 README Quick Links 
+[Technical Notes](./TECHNICAL_README.md) - for more details on how the detection and tracking works.
+
+[API Documentation](//API_README.md) - for more details on all available endpoint implemented in this system.
+
+[People Counter Class](./modules/README.md) - for more details on the functionalities and implementation of the main module (detection and tracking).
+
 ## 📌 Table of Contents
 [1. Object Detection & Tracking Process](#1-object-detection--tracking-process)
 

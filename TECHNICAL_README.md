@@ -55,9 +55,7 @@ where:
 #### 2. Determining If a Person is Inside a Zone
 Each detected person is represented by a **bounding box** with a center point (centroid). The centroid is computed as:  
 
-$
-C_x = \frac{x_{\text{min}} + x_{\text{max}}}{2}, \quad C_y = \frac{y_{\text{min}} + y_{\text{max}}}{2}
-$
+$C_x = \frac{x_{\text{min}} + x_{\text{max}}}{2}, \quad C_y = \frac{y_{\text{min}} + y_{\text{max}}}{2}$
 
 here:
 - $(x_{\text{min}}, y_{\text{min}})$ and $(x_{\text{max}}, y_{\text{max}})$ are the top-left and bottom-right coordinates of the **bounding box**.
@@ -78,8 +76,8 @@ def is_inside_zone(centroid, zone_polygon):
     # Returns True if the point is inside the polygon
     return inside >= 0
 ```
-- If `pointPolygonTest` returns >= 0**, the person is **inside** the zone.
-- If `pointPolygonTest` returns < 0**, the person is **outside** the zone.
+- If `pointPolygonTest` returns >= 0, the person is **inside** the zone.
+- If `pointPolygonTest` returns < 0, the person is **outside** the zone.
 
 #### **3. Tracking Entry and Exit Events**
 Each detected person has a **unique tracking ID**, assigned using **ByteTrack**. We maintain a **tracking history** of their last few states.
