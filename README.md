@@ -1,8 +1,8 @@
 # Live People Counter from CCTV Footage
-<p align="center"><img align="center" width="700" src="./assets/dashboard.png"></p>
-<h4 align="center" src=""><a href="">Initialization Demo Video</a></h4>
+<p align="center"><img align="center" width="700" src="./assets/dash.png"></p>
+<h4 align="center" src=""><a href="https://drive.google.com/file/d/1DxCIQxTgGepVaHLXV0MROKDkCCIpOg-w/view?usp=sharing">🔗 Project Demo</a></h4>
 
-## 🔗 README Quick Links 
+## 🔗 README Quick Links
 [Technical Notes](https://github.com/adityojulian/live-people-counter/blob/main/TECHNICAL_README.md) - for more details on how the detection and tracking works.
 
 [API Documentation](https://github.com/adityojulian/live-people-counter/blob/main/API_README.md) - for more details on all available endpoint implemented in this system.
@@ -173,6 +173,16 @@ A more detailed  API documentation can be found [here](./API_README.md). For sim
     2. Select appropriate YOLO model based on your hardware capabilities
     3. Configure counting zones for your camera
 
+5. **(Optional) Fresh Database**: 
+    - If you want you can use a fresh database without any records by comment and uncommenting these lines on `app.py`
+    ```python
+    # Comment line below if you want to use a fresh db
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db' 
+    
+    # Uncomment line below to use a fresh db
+    # app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///freshdb.db'
+    ```
+
 ### **Changing YOLO Model**
 
 You can change the model in through the dashboard by using the "Model Selection" dropdown. The changes should take effect immediately.
@@ -182,8 +192,8 @@ You can change the model in through the dashboard by using the "Model Selection"
 If you **don’t have a GPU**, update the `Dockerfile`:
 
 ```Dockerfile
-FROM python:3.9-slim
-RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+FROM python:3.9-slim # Line 1
+RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu # Line 29
 ```
 
 ## 7. Troubleshooting
@@ -205,6 +215,7 @@ RUN pip3 install torch torchvision torchaudio --index-url https://download.pytor
     ```bash
     docker exec -it people-counter_people-counter_1 nvidia-smi
     ```
+- Run `docker ps -a` to see exact container name.
     
 ### **3. No Camera Feed**
 - Verify the camera URL is accessible

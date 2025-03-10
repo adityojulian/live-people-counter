@@ -15,7 +15,8 @@ import torch
 
 app = Flask(__name__, static_folder='static')
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db' # Comment this if you want to use a fresh db
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///freshdb.db' # Uncomment this line to use a fresh db
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 

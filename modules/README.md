@@ -202,8 +202,6 @@ Three queues help **decouple** different stages:
 
 -   If `frame_queue` is **full**, new frames are skipped to **maintain real-time processing**.
 
-----------
-
 ## Performance Metrics
 
 The **monitor thread** prints live system stats:
@@ -213,5 +211,4 @@ Performance: 29.5 FPS (instant), 28.7 FPS (average)
 Processing time: 33.9ms per frame
 Capture queue: 5/5, Results queue: 5/5, Output queue: 5/5
 --------------------------------------------------
-
 ```

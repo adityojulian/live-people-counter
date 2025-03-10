@@ -77,19 +77,6 @@ Adds a new camera source.
 }
 ```
 
-### **📍 `PUT /cameras/<camera_id>`**
-
-#### **Description**
-Updates camera settings.
-
-#### **Request**
-```json
-{
-  "name": "Updated Name",
-  "url": "https://example.com/new-stream.m3u8"
-}
-```
-
 #### **Response**
 ```json
 {
@@ -136,6 +123,7 @@ Gets available models and current selection.
 ```json
 {
   "current": "yolov8n",
+  "description": "Fastest, lowest accuracy",
   "available": {
     "yolov8n": {
       "path": "yolov8n.pt",
@@ -149,8 +137,7 @@ Gets available models and current selection.
       "path": "yolo11s.pt",
       "description": "Leaning towards accuracy, slower but still fast"
     }
-  },
-  "description": "Fastest, lowest accuracy"
+  }
 }
 ```
 
