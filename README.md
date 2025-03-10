@@ -9,6 +9,8 @@
 
 [People Counter Class](https://github.com/adityojulian/live-people-counter/blob/main/modules/README.md) - for more details on the functionalities and implementation of the main module (detection and tracking).
 
+[Project Demo](https://drive.google.com/file/d/1DxCIQxTgGepVaHLXV0MROKDkCCIpOg-w/view?usp=sharing) - usage demonstration of the application
+
 ## 📌 Table of Contents
 [1. Object Detection & Tracking Process](#1-object-detection--tracking-process)
 
@@ -29,6 +31,8 @@
 [7. Troubleshooting](#7-troubleshooting)
 
 [8. Test Environment](#8-test-environment)
+
+[9. Feature Checklist](#9-feature-checklist)
 
 ## 1. Object Detection & Tracking Process
 This mechanism is heavily influenced by the `PoepleCounterNew()` class. The documentation for this class can be found [here](https://github.com/adityojulian/live-people-counter/tree/main/modules). In general, the implementation utilizes multi-threading for capturing frame from CCTV, inferencing, and output generating. There are several queues being utilized to support the multi-threading implementation: `frame_queue`, `results_queue`, and `output_queue`. These queues ensure real-time processing for the system. 
@@ -238,3 +242,13 @@ RUN pip3 install torch torchvision torchaudio --index-url https://download.pytor
 - **Processing time**: 10 - 25ms per frame
 - **Memory usage**: ~13 GB RAM during operation
 - **GPU utilization**: 7-13% depending on model
+
+## 9. Feature Checklist
+- [x] Database Design (Done)
+- [x] Dataset Collecting (Done)
+- [x] Object Detection & Tracking (Done)
+- [x] Counting & Polygon Area (Done)
+- [] Prediksi (Forecasting) (x)
+    - Issue: Time contraints
+- [x] API Integration (API/Front End) (Done)
+- [x] Deployment (Done)
