@@ -1,9 +1,10 @@
 # Live People Counter from CCTV Footage
+<p align="center"><img align="center" width="700" src="./assets/dashboard.png"></p>
 
 ## 📌 Table of Contents
-[1. Database Structure and Diagram](#1-database-structure-and-diagram)
+[1. Object Detection & Tracking Process](#1-object-detection--tracking-process)
 
-[2. Object Detection & Tracking Process](#2-object-detection--tracking-process)
+[2. Database Structure and Diagram](#2-database-structure-and-diagram)
 
 [3. Video/Dataset Source](#3-videodataset-source)
 
@@ -12,43 +13,22 @@
 [5. Dashboard Overview](#5-dashboard-overview)
 
 [6. How to Run the System](#6-how-to-run-the-system)
-
-[Pre-requisites](#pre-requisites)
-   - [Using Docker (Recommended)](#using-docker-recommended)
-   - [Changing YOLO Model](#changing-yolo-model)
-   - [Running Without GPU](#running-without-gpu)
+- [Pre-requisites](#pre-requisites)
+- [Using Docker (Recommended)](#using-docker-recommended)
+- [Changing YOLO Model](#changing-yolo-model)
+- [Running Without GPU](#running-without-gpu)
    
 [7. Troubleshooting](#7-troubleshooting)
- 
-## 1. Database Structure and Diagram
 
-The system uses **SQLite** to store data related to **zones** and **counting logs**.
-
-### Database Schema
-
--   **Zone Table (`Zone`)**
-    -   Stores **polygonal areas** (zones) where counting occurs.
-    -   Fields: `id`, `name`, `points`, `created_at`, `active`
--   **Zone Count Table (`ZoneCount`)**
-    -   Stores **entry/exit counts** for each zone.
-    -   Fields: `id`, `zone_id (id, foreign from Zone table)`, `timestamp`, `entries`, `exits`, `current_count`
-
-
--   The **`Zone`** table stores **polygon coordinates** and **zone name**.
--   The **`ZoneCount`** table tracks **how many people enter/exit each zone**.
--   When a person is detected inside a zone:
-    -   The **entry count** increases when a person **enters**.
-    -   The **exit count** increases when a person **leaves**.
--   This ensures that **historical zone data** is stored for analytics.
-
-## 2. Object Detection & Tracking Process
+## 1. Object Detection & Tracking Process
 This mechanism is heavily influenced by the `PoepleCounterNew()` class. The documentation for this class can be found [here](https://github.com/adityojulian/live-people-counter/tree/main/modules). In general, the implementation utilizes multi-threading for capturing frame from CCTV, inferencing, and output generating. There are several queues being utilized to support the multi-threading implementation: `frame_queue`, `results_queue`, and `output_queue`. These queues ensure real-time processing for the system. 
-### **Step-by-Step Process**
+
+### Step-by-Step Process
+Please refer to this page for the process flow diagram of the object detection and tracking and the counting mechanism.
 
 1.  **Capture Video Frames**
     -   Reads frames from a [**live CCTV footage**](https://cctvjss.jogjakota.go.id/malioboro/NolKm_Utara.stream/playlist.m3u8).
 2.  **Detect People with YOLO**
-    
     -  Runs **YOLO object detection** to find **people in the frame**.
     - By default, the model being used is the yolo11-small or `yolo11s` from [Ultralytics](https://docs.ultralytics.com/models/yolo11/). If the program becomes too heavy to run, try changing to a smaller model by modifying the `Dockerfile` as specified [here](#changing-yolo-model).
 3.  **Track Individuals with ByteTrack**
@@ -64,18 +44,40 @@ This mechanism is heavily influenced by the `PoepleCounterNew()` class. The docu
     -   Draws **bounding boxes and counters** on the video.
     -   Streams the **processed video** to the web dashboard.
 
+
+## 2. Database Structure and Diagram
+
+The system uses **SQLite** to store data related to **zones** and **counting logs**.
+
+### Database Schema
+
+-   **Zone Table (`Zone`)**
+    -   Stores **polygonal areas** (zones) where counting occurs.
+    -   Fields: `id`, `name`, `points`, `active`, `created_at`
+-   **Zone Count Table (`ZoneCount`)**
+    -   Stores **entry/exit counts** for each zone.
+    -   Fields: `id`, `zone_id (id, foreign from Zone table)`, `timestamp`, `entries`, `exits`, `current_count`
+
+
+-   The **`Zone`** table stores **polygon coordinates** and **zone name**.
+-   The **`ZoneCount`** table tracks **how many people enter/exit each zone**.
+-   When a person is detected inside a zone:
+    -   The **entry count** increases when a person **enters**.
+    -   The **exit count** increases when a person **leaves**.
+-   This ensures that **historical zone data** is stored for analytics.
+
 ## 3. Video/Dataset Source
 
 The **video stream** is obtained from **CCTV cameras**.
 
--   **Example CCTV Source:**
+-   **Example CCTV Source (Currently using):**
     
-    ```plaintext
-    https://cctvjss.jogjakota.go.id/malioboro/NolKm_Utara.stream/playlist.m3u8 # Currently used
+    ```http
+    https://cctvjss.jogjakota.go.id/malioboro/NolKm_Utara.stream/playlist.m3u8
     ```
 
 ## 4. API Endpoints
-A more detailed  API documentation can be found [here](./API_README.md).
+A more detailed  API documentation can be found [here](./API_README.md). For simplicity, any time-related properties and features are using UTC (GMT+0) timezone.
 | Endpoint | Method | Description | 
 |------------------------|--------|------------------------------------------------------| 
 | **Video Streaming** | 
@@ -89,7 +91,7 @@ A more detailed  API documentation can be found [here](./API_README.md).
  | `/stats` | `GET` | Retrieve the latest or historical zone statistics. |
  | `/graph-data` | `GET` | Get historical data for visualization. |
 
-## 7. Dashboard Overview**
+## 5. Dashboard Overview**
 
 -   **Live Video Feed** 📹
     - Displays **real-time people tracking** with a bounding box.
@@ -104,7 +106,7 @@ A more detailed  API documentation can be found [here](./API_README.md).
 -   **Graph Visualization** 📈
     -   Provides **historical trends** of people movement with datetime range filters.
 
-## 8. How to Run the System
+## 6. How to Run the System
 ### Pre-requisites
 -  [Docker](https://docs.docker.com/get-docker/)
 -  [Docker Compose](https://docs.docker.com/compose/install/)
